@@ -16,13 +16,14 @@ long COORDINATES[] = {1L, 2L};
 #define WEATHER_CLOUDY 1
 #define WEATHER_RAINING 2
 
-#define WEATHER_CLEAR_THRESHOLD 0.20
-#define WEATHER_RAINING_THRESHOLD 0.8
+#define WEATHER_CLEAR_THRESHOLD 0.2
+#define WEATHER_RAINING_THRESHOLD 0.7
 
 WiFiClient client;
 const char* ssid     = "thetardis";
 const char* password = "100cloudy";
-const char* host = "wifitest.adafruit.com";
+const char* host = "appengine.com/ziggy";
+const char* DATETIME_LABEL = "datetime=";
 
 long target;
 int weather_tier;
@@ -87,8 +88,8 @@ void setup() {
 
 long getTarget() {
 
-    // We now create a URI for the request
-  String url = "/get";
+  // We now create a URI for the request
+  String url = "/get?";
   Serial.print("Requesting URL: ");
   Serial.println(url);
   
@@ -97,7 +98,18 @@ long getTarget() {
                "Host: " + host + "\r\n" + 
                "Connection: close\r\n\r\n");
 
-  return 0L;
+  while(client.available()){
+    String line = client.readStringUntil('\r');
+    Serial.print(line);
+    if (int pos = line.indexOf(DATETIME_LABEL) >= 0) {
+      String timestamp_value = line.substring(pos);
+      long timestamp = timestamp_value.toInt();
+      Serial.print(timestamp);
+      
+      return timestamp;
+    }
+  }
+  return -1L;
 }
 
 void ConnectToWifi() {
@@ -158,6 +170,7 @@ void loop() {
   long new_target = getTarget();
 
   if (new_target != target) {
+    Serial.print("New target date");
     float rain_likelihood = getPrecipitationFor(COORDINATES, target);
     int new_weather_tier = getTierFor(rain_likelihood);
     if (new_weather_tier != weather_tier) {
