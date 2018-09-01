@@ -78,8 +78,11 @@ void setup() {
   pinMode(CONNECTION_LED_PIN, OUTPUT);
   pinMode(ACTION_LED_PIN, OUTPUT);
   myServo.attach(SERVO_PIN);
-  MoveServoToPosition(UMBRELLA_CENTER, 10); // Initialize
-
+  MoveServoToPosition(UMBRELLA_CLOSED, 10);
+  delay(500);
+  MoveServoToPosition(UMBRELLA_OPEN, 10);
+  delay(500);
+  MoveServoToPosition(UMBRELLA_CENTER, 10);
   SetActionLEDOff();
   SetConnectionLEDOff();  
   Serial.begin(115200); 
