@@ -1,6 +1,7 @@
 #include <Servo.h>
 #include <time.h>
 #include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
 
 long COORDINATES[] = {1L, 2L};
 
@@ -30,6 +31,27 @@ int weather_tier;
 
 Servo myServo;
 int currentServoPosition;
+
+const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
+const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
+const char* WEATHER_API_KEY = KEEP_DREAMING;
+const char* WEATHER_RESPONSE_OBJECT_LABEL = "currently";
+const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
+
+float getPrecipProbability() {
+  // This is a quick sample code copied and pasted
+  char json[] = "{\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}";
+
+  StaticJsonBuffer<200> jsonBuffer;
+
+  JsonObject& root = jsonBuffer.parseObject(json);
+
+  const char* sensor = root["sensor"];
+  long time          = root["time"];
+  double latitude    = root["data"][0];
+  double longitude   = root["data"][1];
+  return 0.0;
+}
 
 void SetActionLEDOn()
 {
