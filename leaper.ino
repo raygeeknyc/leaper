@@ -1,6 +1,7 @@
 #include <Servo.h>
 #include <time.h>
 #include <ESP8266WiFi.h>
+
 #include <ArduinoJson.h>
 
 long COORDINATES[] = {1L, 2L};
@@ -34,24 +35,9 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = KEEP_DREAMING;
+const char* WEATHER_API_KEY = "KEEP_DREAMING";
 const char* WEATHER_RESPONSE_OBJECT_LABEL = "currently";
 const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
-
-float getPrecipProbability() {
-  // This is a quick sample code copied and pasted
-  char json[] = "{\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}";
-
-  StaticJsonBuffer<200> jsonBuffer;
-
-  JsonObject& root = jsonBuffer.parseObject(json);
-
-  const char* sensor = root["sensor"];
-  long time          = root["time"];
-  double latitude    = root["data"][0];
-  double longitude   = root["data"][1];
-  return 0.0;
-}
 
 void SetActionLEDOn()
 {
@@ -111,8 +97,12 @@ void setup() {
   ConnectToWifi();
 }
 
-long getTarget() {
+char* getWeatherSummary(long COORDINATES[], long target) {
+  // query the weather API - return the response as a C string
+  return 0L;
+}
 
+long getTarget() {
   // We now create a URI for the request
   String url = "/get?";
   Serial.print("Requesting URL: ");
@@ -188,7 +178,30 @@ int getTierFor(float rain_likelihood) {
 }
 
 float getPrecipitationFor(long COORDINATES[], long target) {
-    return 0.10;  
+  char* weather_data = getWeatherSummary(COORDINATES, target);
+
+  int tier = WEATHER_CLEAR;
+  
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& root = jsonBuffer.parseObject(weather_data);
+
+  if (!root.success()) {
+    Serial.println("parseObject() failed");
+    return 0L;
+  }
+  float probability = root["precipProbability"];
+  if (probability) {
+    tier = getTierFor(probability);
+  }
+  const char* icon = root["icon"];
+  if (icon && strlen(icon)) {
+    // if icon contains any of the precip words - return the rainy tier
+  }
+  const char* summary = root["summary"];
+  if (summary && strlen(summary)) {
+    // if summary contains any of the precip words - return the rainy tier
+  }
+  return tier;
 }
 
 void loop() {
@@ -196,9 +209,8 @@ void loop() {
 
   if (new_target != target) {
     Serial.print("New target date");
-    float rain_likelihood = getPrecipitationFor(COORDINATES, target);
-    int new_weather_tier = getTierFor(rain_likelihood);
-    if (new_weather_tier != weather_tier) {
+    int new_weather_tier = getPrecipitationFor(COORDINATES, target);
+     if (new_weather_tier != weather_tier) {
       weather_tier = new_weather_tier;
       updateUmbrella(weather_tier);
     }
