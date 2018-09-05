@@ -21,10 +21,11 @@ long COORDINATES[] = {1L, 2L};
 #define WEATHER_CLEAR_THRESHOLD 0.2
 #define WEATHER_RAINING_THRESHOLD 0.7
 
-WiFiClient client;
+WiFiClient ziggy_client, weather_client;
 const char* ssid     = "thetardis";
 const char* password = "100cloudy";
-const char* host = "appengine.com/ziggy";
+const char* ziggy_host = "appengine.com/ziggy";
+const char* weather_host = "api.darksky.net";
 const char* DATETIME_LABEL = "datetime=";
 
 long target;
@@ -98,6 +99,21 @@ void setup() {
 }
 
 char* getWeatherSummary(long COORDINATES[], long target) {
+
+  // https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
+  String url = "/forecast/";
+  Serial.print("Requesting URL: ");
+  Serial.println(url);
+  
+  // This will send the request to the server
+  weather_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+               "Host: " + ziggy_host + "\r\n" + 
+               "Connection: close\r\n\r\n");
+
+  while(weather_client.available()){
+    String line = weather_client.readStringUntil('\r');
+    Serial.print(line);
+  }
   // query the weather API - return the response as a C string
   return 0L;
 }
@@ -109,12 +125,12 @@ long getTarget() {
   Serial.println(url);
   
   // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
+  ziggy_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+               "Host: " + ziggy_host + "\r\n" + 
                "Connection: close\r\n\r\n");
 
-  while(client.available()){
-    String line = client.readStringUntil('\r');
+  while(ziggy_client.available()){
+    String line = ziggy_client.readStringUntil('\r');
     Serial.print(line);
     if (int pos = line.indexOf(DATETIME_LABEL) >= 0) {
       String timestamp_value = line.substring(pos);
@@ -142,10 +158,14 @@ void ConnectToWifi() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   
-  // Use WiFiClient class to create TCP connections
   const int httpPort = 80;
-  if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
+  
+  if (!ziggy_client.connect(ziggy_host, httpPort)) {
+    Serial.println("connection to ziggy failed");
+    return;
+  }
+  if (!weather_client.connect(weather_host, httpPort)) {
+    Serial.println("connection to weather service failed");
     return;
   }
 }
