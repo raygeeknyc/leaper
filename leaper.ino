@@ -98,29 +98,36 @@ void setup() {
   ConnectToWifi();
 }
 
-char* getWeatherSummary(long COORDINATES[], long target) {
+char* getWeatherSummary(long COORDINATES[], long target_timestamp) {
 
-  // https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
-  String url = "/forecast/";
+  // example query: https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
+  char url[256];
+  sprintf(url, "/forecast/%s/%l,%l,%l?exclude=minutely,hourly,daily,alerts,flags&units=si",
+    WEATHER_API_KEY, COORDINATES[0], COORDINATES[1], target_timestamp);
   Serial.print("Requesting URL: ");
   Serial.println(url);
   
   // This will send the request to the server
   weather_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + ziggy_host + "\r\n" + 
+               "Host: " + weather_host + "\r\n" + 
                "Connection: close\r\n\r\n");
 
+  String response_body;
+  
   while(weather_client.available()){
     String line = weather_client.readStringUntil('\r');
     Serial.print(line);
+    response_body += line;
   }
-  // query the weather API - return the response as a C string
-  return 0L;
+
+  char* response_buffer = (char*)malloc(response_body.length() + 1);
+  strcpy(response_buffer, response_body.c_str());
+  return response_buffer;
 }
 
 long getTarget() {
   // We now create a URI for the request
-  String url = "/get?";
+  String url = "/gettarget";
   Serial.print("Requesting URL: ");
   Serial.println(url);
   
