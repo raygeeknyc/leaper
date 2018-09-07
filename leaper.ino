@@ -21,9 +21,9 @@ long COORDINATES[] = {1L, 2L};
 #define WEATHER_CLEAR_THRESHOLD 0.2
 #define WEATHER_RAINING_THRESHOLD 0.7
 
-WiFiClient ziggy_client, weather_client;
 const char* ssid     = "thetardis";
 const char* password = "100cloudy";
+const int HTTPS_PORT = 443;
 const char* ziggy_host = "appengine.com/ziggy";
 const char* weather_host = "api.darksky.net";
 const char* DATETIME_LABEL = "datetime=";
@@ -42,37 +42,37 @@ const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
 void SetActionLEDOn()
 {
-    digitalWrite(ACTION_LED_PIN, false);
+  digitalWrite(ACTION_LED_PIN, false);
 }
 
 void SetActionLEDOff()
 {
-   digitalWrite(ACTION_LED_PIN, true); 
+  digitalWrite(ACTION_LED_PIN, true);
 }
 
 void SetConnectionLEDOn()
 {
-   digitalWrite(CONNECTION_LED_PIN, false); 
+  digitalWrite(CONNECTION_LED_PIN, false);
 }
 
 void SetConnectionLEDOff()
 {
-    digitalWrite(CONNECTION_LED_PIN, true); 
+  digitalWrite(CONNECTION_LED_PIN, true);
 }
 
 void MoveServoToPosition(int position, int speed)
 {
-  if(position < currentServoPosition)
+  if (position < currentServoPosition)
   {
-    for(int i = currentServoPosition; i > position; i--)
+    for (int i = currentServoPosition; i > position; i--)
     {
       myServo.write(i);
       delay(speed);
     }
   }
-  else if(position > currentServoPosition)
+  else if (position > currentServoPosition)
   {
-    for(int i = currentServoPosition; i < position; i++)
+    for (int i = currentServoPosition; i < position; i++)
     {
       myServo.write(i);
       delay(speed);
@@ -93,29 +93,55 @@ void setup() {
   delay(500);
   MoveServoToPosition(UMBRELLA_CENTER, 10);
   SetActionLEDOff();
-  SetConnectionLEDOff();  
-  Serial.begin(115200); 
-  ConnectToWifi();
+  SetConnectionLEDOff();
+  Serial.begin(115200);
 }
 
 char* getWeatherSummary(long COORDINATES[], long target_timestamp) {
-
-  // example query: https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
+  // Example query: https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
   char url[256];
   sprintf(url, "/forecast/%s/%l,%l,%l?exclude=minutely,hourly,daily,alerts,flags&units=si",
-    WEATHER_API_KEY, COORDINATES[0], COORDINATES[1], target_timestamp);
+          WEATHER_API_KEY, COORDINATES[0], COORDINATES[1], target_timestamp);
+
+  return getHttpResponse(weather_host, url);
+}
+char* getHttpResponse(const char* host, char* url) {
+  WiFiClient http_client;
+  
+  Serial.println("");
+  Serial.println("Connecting to Wifi");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  SetConnectionLEDOn();
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  Serial.print("Connecting to host: ");
+  Serial.println(host);
+  
+  if (!http_client.connect(host, HTTPS_PORT)) {
+    Serial.println("connection to host failed");
+    return 0L;
+  }
+
   Serial.print("Requesting URL: ");
   Serial.println(url);
-  
+
   // This will send the request to the server
-  weather_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + weather_host + "\r\n" + 
-               "Connection: close\r\n\r\n");
+  http_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                     "Host: " + host + "\r\n" +
+                     "Connection: close\r\n\r\n");
 
   String response_body;
-  
-  while(weather_client.available()){
-    String line = weather_client.readStringUntil('\r');
+
+  while (http_client.available()) {
+    String line = http_client.readStringUntil('\r');
     Serial.print(line);
     response_body += line;
   }
@@ -127,54 +153,23 @@ char* getWeatherSummary(long COORDINATES[], long target_timestamp) {
 
 long getTarget() {
   // We now create a URI for the request
-  String url = "/gettarget";
+  char url[] = "/gettarget";
   Serial.print("Requesting URL: ");
   Serial.println(url);
-  
-  // This will send the request to the server
-  ziggy_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + ziggy_host + "\r\n" + 
-               "Connection: close\r\n\r\n");
 
-  while(ziggy_client.available()){
-    String line = ziggy_client.readStringUntil('\r');
-    Serial.print(line);
-    if (int pos = line.indexOf(DATETIME_LABEL) >= 0) {
-      String timestamp_value = line.substring(pos);
-      long timestamp = timestamp_value.toInt();
-      Serial.print(timestamp);
-      
-      return timestamp;
-    }
+  String response = String(getHttpResponse(ziggy_host, url));
+  int pos;
+
+  Serial.print("Received datetime response: '");
+  Serial.print(response);
+  Serial.println("'");
+   if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {  // This assumes that the datetime value is the end of the response
+    String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL));
+    long timestamp = timestamp_value.toInt();
+    Serial.print(timestamp);
+    return timestamp;
   }
   return -1L;
-}
-
-void ConnectToWifi() {
-  Serial.println("");
-  Serial.println("Connecting to Wifi");  
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  SetConnectionLEDOn();  
-
-  Serial.println("");
-  Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  
-  const int httpPort = 80;
-  
-  if (!ziggy_client.connect(ziggy_host, httpPort)) {
-    Serial.println("connection to ziggy failed");
-    return;
-  }
-  if (!weather_client.connect(weather_host, httpPort)) {
-    Serial.println("connection to weather service failed");
-    return;
-  }
 }
 
 void updateUmbrella(int weather_tier) {
@@ -186,7 +181,7 @@ void updateUmbrella(int weather_tier) {
     case WEATHER_CLOUDY:
       MoveServoToPosition(UMBRELLA_CENTER, 10);
       ;;
-    default: WEATHER_RAIN:
+default: WEATHER_RAIN:
       MoveServoToPosition(UMBRELLA_OPEN, 10);
       ;;
   }
@@ -198,9 +193,9 @@ int getTierFor(float rain_likelihood) {
   if (rain_likelihood <= WEATHER_CLEAR_THRESHOLD) {
     return WEATHER_CLEAR;
   } else if (rain_likelihood < WEATHER_RAINING_THRESHOLD) {
-        return WEATHER_CLOUDY;
+    return WEATHER_CLOUDY;
   } else {
-        return WEATHER_RAINING;
+    return WEATHER_RAINING;
   }
 }
 
@@ -208,7 +203,7 @@ float getPrecipitationFor(long COORDINATES[], long target) {
   char* weather_data = getWeatherSummary(COORDINATES, target);
 
   int tier = WEATHER_CLEAR;
-  
+
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(weather_data);
 
@@ -237,7 +232,7 @@ void loop() {
   if (new_target != target) {
     Serial.print("New target date");
     int new_weather_tier = getPrecipitationFor(COORDINATES, target);
-     if (new_weather_tier != weather_tier) {
+    if (new_weather_tier != weather_tier) {
       weather_tier = new_weather_tier;
       updateUmbrella(weather_tier);
     }
