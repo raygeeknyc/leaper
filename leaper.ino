@@ -4,7 +4,12 @@
 
 #include <ArduinoJson.h>
 
-long COORDINATES[] = {1L, 2L};
+float COORDINATES_NYC [] = {40.7, -74.0};
+float COORDINATES_YAOUNDE [] = {3.84, 11.5};
+
+float* COORDINATES = COORDINATES_NYC;
+
+#define POLL_DELAY 10000
 
 #define CONNECTION_LED_PIN 2
 #define ACTION_LED_PIN LED_BUILTIN
@@ -13,6 +18,11 @@ long COORDINATES[] = {1L, 2L};
 #define UMBRELLA_CENTER 140
 #define UMBRELLA_OPEN 60
 #define UMBRELLA_CLOSED 180
+
+#define RAIN_LABEL "rain"
+#define SNOW_LABEL "snow"
+#define SLEET_LABEL "sleet"
+#define HAIL_LABEL "hail"
 
 #define WEATHER_CLEAR 0
 #define WEATHER_CLOUDY 1
@@ -24,7 +34,7 @@ long COORDINATES[] = {1L, 2L};
 const char* ssid     = "thetardis";
 const char* password = "100cloudy";
 const int HTTPS_PORT = 443;
-const char* ziggy_host = "appengine.com/ziggy";
+const char* ziggy_host = "ziggy-214721.appspot.com";
 const char* weather_host = "api.darksky.net";
 const char* DATETIME_LABEL = "datetime=";
 
@@ -36,7 +46,7 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = "KEEP_DREAMING";
+const char* WEATHER_API_KEY = "271428dae50898a27f9af234f1497b19";
 const char* WEATHER_RESPONSE_OBJECT_LABEL = "currently";
 const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
@@ -97,16 +107,18 @@ void setup() {
   Serial.begin(115200);
 }
 
-char* getWeatherSummary(long COORDINATES[], long target_timestamp) {
-  // Example query: https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
+char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
+  
   char url[256];
-  sprintf(url, "/forecast/%s/%l,%l,%l?exclude=minutely,hourly,daily,alerts,flags&units=si",
+  // Example query: https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
+  sprintf(url, "/forecast/%s/%f,%f,%ld?exclude=minutely,hourly,daily,alerts,flags&units=si",
           WEATHER_API_KEY, COORDINATES[0], COORDINATES[1], target_timestamp);
 
   return getHttpResponse(weather_host, url);
 }
+
 char* getHttpResponse(const char* host, char* url) {
-  WiFiClient http_client;
+  WiFiClientSecure http_client;
   
   Serial.println("");
   Serial.println("Connecting to Wifi");
@@ -138,14 +150,19 @@ char* getHttpResponse(const char* host, char* url) {
                      "Host: " + host + "\r\n" +
                      "Connection: close\r\n\r\n");
 
-  String response_body;
-
-  while (http_client.available()) {
-    String line = http_client.readStringUntil('\r');
-    Serial.print(line);
-    response_body += line;
+  Serial.println("request sent");
+  while (http_client.connected()) {
+    String line = http_client.readStringUntil('\n');
+    Serial.print("Header: ");
+    Serial.println(line);
+    if (line == "\r") {
+      Serial.println("headers received");
+      break;
+    }
   }
-
+  String response_body = http_client.readStringUntil('\n');
+  Serial.print("Body: ");
+  Serial.println(response_body);
   char* response_buffer = (char*)malloc(response_body.length() + 1);
   strcpy(response_buffer, response_body.c_str());
   return response_buffer;
@@ -164,9 +181,8 @@ long getTarget() {
   Serial.print(response);
   Serial.println("'");
    if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {  // This assumes that the datetime value is the end of the response
-    String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL));
+    String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL)-1);
     long timestamp = timestamp_value.toInt();
-    Serial.print(timestamp);
     return timestamp;
   }
   return -1L;
@@ -199,29 +215,45 @@ int getTierFor(float rain_likelihood) {
   }
 }
 
-float getPrecipitationFor(long COORDINATES[], long target) {
+float getPrecipitationFor(float COORDINATES[], long target) {
+  
   char* weather_data = getWeatherSummary(COORDINATES, target);
 
+  Serial.println(weather_data);
+  
   int tier = WEATHER_CLEAR;
 
-  StaticJsonBuffer<200> jsonBuffer;
+  DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(weather_data);
 
   if (!root.success()) {
     Serial.println("parseObject() failed");
     return 0L;
   }
-  float probability = root["precipProbability"];
+  float probability = root["currently"]["precipProbability"];
   if (probability) {
+    Serial.print("Probability: ");
+    Serial.println(probability);
     tier = getTierFor(probability);
+
+    return tier;
   }
-  const char* icon = root["icon"];
+  const char* icon = root["currently"]["icon"];
   if (icon && strlen(icon)) {
     // if icon contains any of the precip words - return the rainy tier
+    Serial.print("Icon: ");
+    Serial.println(icon);
+    if (strstr(icon, RAIN_LABEL) || strstr(icon, SNOW_LABEL) || strstr(icon, SLEET_LABEL) || strstr(icon, HAIL_LABEL)) {
+      return WEATHER_RAINING;
+    }
   }
-  const char* summary = root["summary"];
+  const char* summary = root["currently"]["summary"];
   if (summary && strlen(summary)) {
-    // if summary contains any of the precip words - return the rainy tier
+    Serial.print("Summary: ");
+    Serial.println(summary);
+    if (strstr(summary, RAIN_LABEL) || strstr(summary, SNOW_LABEL) || strstr(summary, SLEET_LABEL) || strstr(summary, HAIL_LABEL)) {
+      return WEATHER_RAINING;
+    }
   }
   return tier;
 }
@@ -230,11 +262,16 @@ void loop() {
   long new_target = getTarget();
 
   if (new_target != target) {
-    Serial.print("New target date");
-    int new_weather_tier = getPrecipitationFor(COORDINATES, target);
+    Serial.print("New target date: ");
+    Serial.println(new_target);
+    int new_weather_tier = getPrecipitationFor(COORDINATES, new_target);
+    Serial.print("Tier: ");
+    Serial.println(new_weather_tier);
     if (new_weather_tier != weather_tier) {
       weather_tier = new_weather_tier;
       updateUmbrella(weather_tier);
     }
+    target = new_target;
   }
+  delay(POLL_DELAY);
 }
