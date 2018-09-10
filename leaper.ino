@@ -60,7 +60,7 @@ float* COORDINATES = COORDINATES_NYC;
 #define WEATHER_RAINING_THRESHOLD 0.7
 
 const char* ssid     = "thetardis";
-const char* password = "100cloudy";
+const char* password = "SETME";
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
 const char* weather_host = "api.darksky.net";
@@ -75,7 +75,6 @@ int currentServoPosition;
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
 const char* WEATHER_API_KEY = "271428dae50898a27f9af234f1497b19";   // Reset me before enabling billing
-const char* WEATHER_RESPONSE_OBJECT_LABEL = "currently";
 const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
 void SetActionLEDOn()
