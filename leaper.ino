@@ -1,11 +1,35 @@
+/* leaper
+  Part of the World Weather Wayback machine project
+
+  by Raymond Blum raygeeknyc@
+
+  http://www.github.com/raygeeknyc/leaper
+*/
+
 #include <Servo.h>
 #include <time.h>
 #include <ESP8266WiFi.h>
 
 #include <ArduinoJson.h>
 
+// North America
 float COORDINATES_NYC [] = {40.7, -74.0};
+float COORDINATES_SASKATCHEWAN [] = {52.94, -106.45};
+// Africa
 float COORDINATES_YAOUNDE [] = {3.84, 11.5};
+float COORDINATES_GABARONE [] = {-24.6, 25.9};
+// South America
+float COORDINATES_SANTIAGO [] = {-33.45, -70.67};
+float COORDINATES_GEORGETOWN [] = {6.8, -58.156};
+// Europe
+float COORDINATES_BUCHAREST [] = {44.4, 26.1};
+float COORDINATES_DUBLIN [] = {53.35, -6.26};
+// Asia
+float COORDINATES_SEOUL [] = {37.57, 126.98};
+float COORDINATES_HYDERBAD [] = {17.39, 78.49};
+// Australia and Oceania
+float COORDINATES_PERTH [] = {-31.96, 115.86};
+float COORDINATES_PORT_OF_SPAIN [] = {10.66, -61.5};
 
 float* COORDINATES = COORDINATES_NYC;
 
@@ -32,7 +56,7 @@ float* COORDINATES = COORDINATES_NYC;
 #define WEATHER_RAINING_THRESHOLD 0.7
 
 const char* ssid     = "thetardis";
-const char* password = "100cloudy";
+const char* password = "SETME";
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
 const char* weather_host = "api.darksky.net";
@@ -46,7 +70,7 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = "271428dae50898a27f9af234f1497b19";
+const char* WEATHER_API_KEY = "271428dae50898a27f9af234f1497b19";   // Reset me before enabling billing
 const char* WEATHER_RESPONSE_OBJECT_LABEL = "currently";
 const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
@@ -173,19 +197,20 @@ long getTarget() {
   char url[] = "/gettarget";
   Serial.print("Requesting URL: ");
   Serial.println(url);
-
-  String response = String(getHttpResponse(ziggy_host, url));
+  char* http_response_body; 
+  String response = String(http_response_body=getHttpResponse(ziggy_host, url));
   int pos;
-
+  long timestamp = -1L;
+  
   Serial.print("Received datetime response: '");
   Serial.print(response);
   Serial.println("'");
    if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {  // This assumes that the datetime value is the end of the response
     String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL)-1);
     long timestamp = timestamp_value.toInt();
-    return timestamp;
   }
-  return -1L;
+  free(http_response_body );
+  return timestamp;
 }
 
 void updateUmbrella(int weather_tier) {
@@ -217,14 +242,15 @@ int getTierFor(float rain_likelihood) {
 
 float getPrecipitationFor(float COORDINATES[], long target) {
   
-  char* weather_data = getWeatherSummary(COORDINATES, target);
+  char* weather_service_response = getWeatherSummary(COORDINATES, target);
 
-  Serial.println(weather_data);
+  Serial.println(weather_service_response);
   
   int tier = WEATHER_CLEAR;
 
   DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.parseObject(weather_data);
+  JsonObject& root = jsonBuffer.parseObject(weather_service_response);
+  free(weather_service_response);
 
   if (!root.success()) {
     Serial.println("parseObject() failed");
