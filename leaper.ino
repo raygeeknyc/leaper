@@ -243,7 +243,7 @@ int getTierFor(float rain_likelihood) {
   }
 }
 
-float getPrecipitationFor(float COORDINATES[], long target) {
+int getPrecipitationFor(float COORDINATES[], long target) {
   
   char* weather_service_response = getWeatherSummary(COORDINATES, target);
 
