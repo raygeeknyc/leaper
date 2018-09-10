@@ -43,10 +43,14 @@ float* COORDINATES = COORDINATES_NYC;
 #define UMBRELLA_OPEN 60
 #define UMBRELLA_CLOSED 180
 
-#define RAIN_LABEL "rain"
-#define SNOW_LABEL "snow"
-#define SLEET_LABEL "sleet"
-#define HAIL_LABEL "hail"
+#define RAIN_LABEL1 "rain"
+#define RAIN_LABEL2 "Rain"
+#define SNOW_LABEL1 "snow"
+#define SNOW_LABEL2 "Snow"
+#define SLEET_LABEL1 "sleet"
+#define SLEET_LABEL2 "Sleet"
+#define HAIL_LABEL1 "hail"
+#define HAIL_LABEL2 "Hail"
 
 #define WEATHER_CLEAR 0
 #define WEATHER_CLOUDY 1
@@ -56,7 +60,7 @@ float* COORDINATES = COORDINATES_NYC;
 #define WEATHER_RAINING_THRESHOLD 0.7
 
 const char* ssid     = "thetardis";
-const char* password = "SETME";
+const char* password = "100cloudy";
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
 const char* weather_host = "api.darksky.net";
@@ -207,7 +211,7 @@ long getTarget() {
   Serial.println("'");
    if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {  // This assumes that the datetime value is the end of the response
     String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL)-1);
-    long timestamp = timestamp_value.toInt();
+    timestamp = timestamp_value.toInt();
   }
   free(http_response_body );
   return timestamp;
@@ -265,11 +269,14 @@ float getPrecipitationFor(float COORDINATES[], long target) {
     return tier;
   }
   const char* icon = root["currently"]["icon"];
+  String icon_upper = String(icon);
+  
   if (icon && strlen(icon)) {
-    // if icon contains any of the precip words - return the rainy tier
+   // if icon contains any of the precip words - return the rainy tier
     Serial.print("Icon: ");
     Serial.println(icon);
-    if (strstr(icon, RAIN_LABEL) || strstr(icon, SNOW_LABEL) || strstr(icon, SLEET_LABEL) || strstr(icon, HAIL_LABEL)) {
+    if (strstr(icon, RAIN_LABEL1) || strstr(icon, SNOW_LABEL1) || strstr(icon, SLEET_LABEL1) || strstr(icon, HAIL_LABEL1) ||
+      strstr(icon, RAIN_LABEL2) || strstr(icon, SNOW_LABEL2) || strstr(icon, SLEET_LABEL2) || strstr(icon, HAIL_LABEL2)) {
       return WEATHER_RAINING;
     }
   }
@@ -277,7 +284,8 @@ float getPrecipitationFor(float COORDINATES[], long target) {
   if (summary && strlen(summary)) {
     Serial.print("Summary: ");
     Serial.println(summary);
-    if (strstr(summary, RAIN_LABEL) || strstr(summary, SNOW_LABEL) || strstr(summary, SLEET_LABEL) || strstr(summary, HAIL_LABEL)) {
+    if (strstr(summary, RAIN_LABEL1) || strstr(summary, SNOW_LABEL1) || strstr(summary, SLEET_LABEL1) || strstr(summary, HAIL_LABEL1) ||
+      strstr(summary, RAIN_LABEL2) || strstr(summary, SNOW_LABEL2) || strstr(summary, SLEET_LABEL2) || strstr(summary, HAIL_LABEL2)) {
       return WEATHER_RAINING;
     }
   }
