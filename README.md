@@ -1,2 +1,2 @@
 # leaper
- The weather wayback machine viewer
+ The World Weather Wayback machine viewer
