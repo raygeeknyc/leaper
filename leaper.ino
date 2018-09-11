@@ -26,7 +26,7 @@ float COORDINATES_BUCHAREST [] = {44.4, 26.1};
 float COORDINATES_DUBLIN [] = {53.35, -6.26};
 // Asia
 float COORDINATES_SEOUL [] = {37.57, 126.98};
-float COORDINATES_HYDERBAD [] = {17.39, 78.49};
+float COORDINATES_CHENNAI [] = {13.08, 80.27};
 // Australia and Oceania
 float COORDINATES_PERTH [] = {-31.96, 115.86};
 float COORDINATES_PORT_OF_SPAIN [] = {10.66, -61.5};
