@@ -34,7 +34,8 @@ float COORDINATES_PORT_OF_SPAIN [] = {10.66, -61.5};
 
 float* COORDINATES = COORDINATES_NYC;
 
-#define POLL_DELAY 10000
+#define _DEFAULT_POLL_DELAY_MS 5000
+int poll_delay;
 
 #define CONNECTION_LED_PIN 2
 #define ACTION_LED_PIN LED_BUILTIN
@@ -52,6 +53,8 @@ float* COORDINATES = COORDINATES_NYC;
 #define SLEET_LABEL2 "Sleet"
 #define HAIL_LABEL1 "hail"
 #define HAIL_LABEL2 "Hail"
+#define MOSTLY_CLOUDY_LABEL1 "Mostly cloudy"
+#define MOSTLY_CLOUDY_LABEL2 "Overcast"
 
 #define WEATHER_CLEAR 0
 #define WEATHER_CLOUDY 1
@@ -61,11 +64,12 @@ float* COORDINATES = COORDINATES_NYC;
 #define WEATHER_RAINING_THRESHOLD 0.7
 
 const char* ssid     = "thetardis";
-const char* password = "SETME";
+const char* password = "100cloudy";
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
 const char* weather_host = "api.darksky.net";
 const char* DATETIME_LABEL = "datetime=";
+const char* DELAY_LABEL = "delay=";
 
 long target;
 int weather_tier;
@@ -120,8 +124,11 @@ void MoveServoToPosition(int position, int speed)
 }
 
 void setup() {
+  Serial.begin(115200);
+  Serial.print("in setup(): ");
+
   target = 0L;
-  weather_tier = 0;
+  poll_delay = _DEFAULT_POLL_DELAY_MS;
   pinMode(CONNECTION_LED_PIN, OUTPUT);
   pinMode(ACTION_LED_PIN, OUTPUT);
   myServo.attach(SERVO_PIN);
@@ -132,7 +139,11 @@ void setup() {
   MoveServoToPosition(UMBRELLA_CENTER, 10);
   SetActionLEDOff();
   SetConnectionLEDOff();
-  Serial.begin(115200);
+
+  int delay_ms = getDelay();
+  if (delay_ms > 0) {
+    poll_delay = delay_ms;
+  }
 }
 
 char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
@@ -209,26 +220,51 @@ long getTarget() {
   Serial.print("Received datetime response: '");
   Serial.print(response);
   Serial.println("'");
-   if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {  // This assumes that the datetime value is the end of the response
+   if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {
     String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL)-1);
     timestamp = timestamp_value.toInt();
   }
   free(http_response_body );
   return timestamp;
 }
+int getDelay() {
+  // We now create a URI for the request
+  char url[] = "/getdelay";
+  Serial.print("Requesting URL: ");
+  Serial.println(url);
+  char* http_response_body; 
+  String response = String(http_response_body=getHttpResponse(ziggy_host, url));
+  int pos;
+  int delay_ms = -1L;
+  
+  Serial.print("Received delay response: '");
+  Serial.print(response);
+  Serial.println("'");
+   if (response && (pos = response.indexOf(DELAY_LABEL) >= 0)) {
+    String delay_value = response.substring(pos+strlen(DELAY_LABEL)-1);
+    delay_ms = delay_value.toInt();
+  }
+  free(http_response_body );
+  return delay_ms;
+}
 
 void updateUmbrella(int weather_tier) {
   SetActionLEDOn();
+  Serial.print("Opening umbrella for tier: ");
+  Serial.println(weather_tier);
   switch (weather_tier) {
     case WEATHER_CLEAR:
       MoveServoToPosition(UMBRELLA_CLOSED, 10);
+      break;
       ;;
     case WEATHER_CLOUDY:
       MoveServoToPosition(UMBRELLA_CENTER, 10);
+      break;
       ;;
-default: WEATHER_RAIN:
+    case WEATHER_RAINING:
       MoveServoToPosition(UMBRELLA_OPEN, 10);
-      ;;
+      break;
+    ;;
   }
   delay(500);
   SetActionLEDOff();
@@ -288,6 +324,9 @@ int getPrecipitationFor(float COORDINATES[], long target) {
       strstr(summary, RAIN_LABEL2) || strstr(summary, SNOW_LABEL2) || strstr(summary, SLEET_LABEL2) || strstr(summary, HAIL_LABEL2)) {
       return WEATHER_RAINING;
     }
+    if (strstr(summary, MOSTLY_CLOUDY_LABEL1) || strstr(summary, MOSTLY_CLOUDY_LABEL2)) {
+      return WEATHER_CLOUDY;
+    }
   }
   return tier;
 }
@@ -307,5 +346,5 @@ void loop() {
     }
     target = new_target;
   }
-  delay(POLL_DELAY);
+  delay(poll_delay);
 }
