@@ -18,9 +18,9 @@ float COORDINATES_NYC [] = {40.7, -74.0};
 float COORDINATES_SASKATCHEWAN [] = {52.94, -106.45};
 // Africa
 float COORDINATES_YAOUNDE [] = {3.84, 11.5};
-float COORDINATES_GABARONE [] = {-24.6, 25.9};
+float COORDINATES_GABARONE [] = { -24.6, 25.9};
 // South America
-float COORDINATES_SANTIAGO [] = {-33.45, -70.67};
+float COORDINATES_SANTIAGO [] = { -33.45, -70.67};
 float COORDINATES_GEORGETOWN [] = {6.8, -58.156};
 // Europe
 float COORDINATES_BUCHAREST [] = {44.4, 26.1};
@@ -29,10 +29,11 @@ float COORDINATES_DUBLIN [] = {53.35, -6.26};
 float COORDINATES_SEOUL [] = {37.57, 126.98};
 float COORDINATES_CHENNAI [] = {13.08, 80.27};
 // Australia and Oceania
-float COORDINATES_PERTH [] = {-31.96, 115.86};
-float COORDINATES_PORT_OF_SPAIN [] = {10.66, -61.5};
+float COORDINATES_PERTH [] = { -31.96, 115.86};
+float COORDINATES_SUVA [] = {-18.12, 178.45};
 
-float* COORDINATES = COORDINATES_NYC;
+// Where this device is homed
+float* HOME_COORDINATES = COORDINATES_NYC;
 
 #define _DEFAULT_POLL_DELAY_MS 5000
 int poll_delay;
@@ -53,7 +54,7 @@ int poll_delay;
 #define SLEET_LABEL2 "Sleet"
 #define HAIL_LABEL1 "hail"
 #define HAIL_LABEL2 "Hail"
-#define MOSTLY_CLOUDY_LABEL1 "Mostly cloudy"
+#define MOSTLY_CLOUDY_LABEL1 "Mostly Cloudy"
 #define MOSTLY_CLOUDY_LABEL2 "Overcast"
 
 #define WEATHER_CLEAR 0
@@ -63,8 +64,14 @@ int poll_delay;
 #define WEATHER_CLEAR_THRESHOLD 0.2
 #define WEATHER_RAINING_THRESHOLD 0.7
 
-const char* ssid     = "thetardis";
-const char* password = "100cloudy";
+const char* wifi_ssid_mfny     = "Google";
+const char* wifi_password_mfny = SETME;
+const char* wifi_ssid_backup     = "thetardis";
+const char* wifi_password_backup = SETME;
+
+const char* wifi_ssid     = wifi_ssid_backup;
+const char* wifi_password = wifi_password_backup;
+
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
 const char* weather_host = "api.darksky.net";
@@ -147,7 +154,7 @@ void setup() {
 }
 
 char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
-  
+
   char url[256];
   // Example query: https://api.darksky.net/forecast/271428dae50898a27f9af234f1497b19/40.7,-84.0,1296216000?exclude=minutely,hourly,daily,alerts,flags
   sprintf(url, "/forecast/%s/%f,%f,%ld?exclude=minutely,hourly,daily,alerts,flags&units=si",
@@ -158,10 +165,10 @@ char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
 
 char* getHttpResponse(const char* host, char* url) {
   WiFiClientSecure http_client;
-  
+
   Serial.println("");
   Serial.println("Connecting to Wifi");
-  WiFi.begin(ssid, password);
+  WiFi.begin(wifi_ssid, wifi_password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -175,7 +182,7 @@ char* getHttpResponse(const char* host, char* url) {
 
   Serial.print("Connecting to host: ");
   Serial.println(host);
-  
+
   if (!http_client.connect(host, HTTPS_PORT)) {
     Serial.println("connection to host failed");
     return 0L;
@@ -186,14 +193,12 @@ char* getHttpResponse(const char* host, char* url) {
 
   // This will send the request to the server
   http_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-                     "Host: " + host + "\r\n" +
-                     "Connection: close\r\n\r\n");
+                    "Host: " + host + "\r\n" +
+                    "Connection: close\r\n\r\n");
 
   Serial.println("request sent");
   while (http_client.connected()) {
     String line = http_client.readStringUntil('\n');
-    Serial.print("Header: ");
-    Serial.println(line);
     if (line == "\r") {
       Serial.println("headers received");
       break;
@@ -212,36 +217,37 @@ long getTarget() {
   char url[] = "/gettarget";
   Serial.print("Requesting URL: ");
   Serial.println(url);
-  char* http_response_body; 
-  String response = String(http_response_body=getHttpResponse(ziggy_host, url));
+  char* http_response_body;
+  String response = String(http_response_body = getHttpResponse(ziggy_host, url));
   int pos;
   long timestamp = -1L;
-  
+
   Serial.print("Received datetime response: '");
   Serial.print(response);
   Serial.println("'");
-   if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {
-    String timestamp_value = response.substring(pos+strlen(DATETIME_LABEL)-1);
+  if (response && (pos = response.indexOf(DATETIME_LABEL) >= 0)) {
+    String timestamp_value = response.substring(pos + strlen(DATETIME_LABEL) - 1);
     timestamp = timestamp_value.toInt();
   }
   free(http_response_body );
   return timestamp;
 }
+
 int getDelay() {
   // We now create a URI for the request
   char url[] = "/getdelay";
   Serial.print("Requesting URL: ");
   Serial.println(url);
-  char* http_response_body; 
-  String response = String(http_response_body=getHttpResponse(ziggy_host, url));
+  char* http_response_body;
+  String response = String(http_response_body = getHttpResponse(ziggy_host, url));
   int pos;
   int delay_ms = -1L;
-  
+
   Serial.print("Received delay response: '");
   Serial.print(response);
   Serial.println("'");
-   if (response && (pos = response.indexOf(DELAY_LABEL) >= 0)) {
-    String delay_value = response.substring(pos+strlen(DELAY_LABEL)-1);
+  if (response && (pos = response.indexOf(DELAY_LABEL) >= 0)) {
+    String delay_value = response.substring(pos + strlen(DELAY_LABEL) - 1);
     delay_ms = delay_value.toInt();
   }
   free(http_response_body );
@@ -264,7 +270,7 @@ void updateUmbrella(int weather_tier) {
     case WEATHER_RAINING:
       MoveServoToPosition(UMBRELLA_OPEN, 10);
       break;
-    ;;
+      ;;
   }
   delay(500);
   SetActionLEDOff();
@@ -281,11 +287,11 @@ int getTierFor(float rain_likelihood) {
 }
 
 int getPrecipitationFor(float COORDINATES[], long target) {
-  
+
   char* weather_service_response = getWeatherSummary(COORDINATES, target);
 
   Serial.println(weather_service_response);
-  
+
   int tier = WEATHER_CLEAR;
 
   DynamicJsonBuffer jsonBuffer;
@@ -306,13 +312,13 @@ int getPrecipitationFor(float COORDINATES[], long target) {
   }
   const char* icon = root["currently"]["icon"];
   String icon_upper = String(icon);
-  
+
   if (icon && strlen(icon)) {
-   // if icon contains any of the precip words - return the rainy tier
+    // if icon contains any of the precip words - return the rainy tier
     Serial.print("Icon: ");
     Serial.println(icon);
     if (strstr(icon, RAIN_LABEL1) || strstr(icon, SNOW_LABEL1) || strstr(icon, SLEET_LABEL1) || strstr(icon, HAIL_LABEL1) ||
-      strstr(icon, RAIN_LABEL2) || strstr(icon, SNOW_LABEL2) || strstr(icon, SLEET_LABEL2) || strstr(icon, HAIL_LABEL2)) {
+        strstr(icon, RAIN_LABEL2) || strstr(icon, SNOW_LABEL2) || strstr(icon, SLEET_LABEL2) || strstr(icon, HAIL_LABEL2)) {
       return WEATHER_RAINING;
     }
   }
@@ -321,7 +327,7 @@ int getPrecipitationFor(float COORDINATES[], long target) {
     Serial.print("Summary: ");
     Serial.println(summary);
     if (strstr(summary, RAIN_LABEL1) || strstr(summary, SNOW_LABEL1) || strstr(summary, SLEET_LABEL1) || strstr(summary, HAIL_LABEL1) ||
-      strstr(summary, RAIN_LABEL2) || strstr(summary, SNOW_LABEL2) || strstr(summary, SLEET_LABEL2) || strstr(summary, HAIL_LABEL2)) {
+        strstr(summary, RAIN_LABEL2) || strstr(summary, SNOW_LABEL2) || strstr(summary, SLEET_LABEL2) || strstr(summary, HAIL_LABEL2)) {
       return WEATHER_RAINING;
     }
     if (strstr(summary, MOSTLY_CLOUDY_LABEL1) || strstr(summary, MOSTLY_CLOUDY_LABEL2)) {
@@ -337,7 +343,7 @@ void loop() {
   if (new_target != target) {
     Serial.print("New target date: ");
     Serial.println(new_target);
-    int new_weather_tier = getPrecipitationFor(COORDINATES, new_target);
+    int new_weather_tier = getPrecipitationFor(HOME_COORDINATES, new_target);
     Serial.print("Tier: ");
     Serial.println(new_weather_tier);
     if (new_weather_tier != weather_tier) {
