@@ -65,9 +65,9 @@ int poll_delay;
 #define WEATHER_RAINING_THRESHOLD 0.7
 
 const char* wifi_ssid_mfny     = "Google";
-const char* wifi_password_mfny = "GoogleMS";
+const char* wifi_password_mfny = SETME;
 const char* wifi_ssid_backup     = "thetardis";
-const char* wifi_password_backup = "100cloudy";
+const char* wifi_password_backup = SETME;
 
 const char* wifi_ssid     = wifi_ssid_mfny;
 const char* wifi_password = wifi_password_mfny;
@@ -86,7 +86,7 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = "1ee4916844ca0524f784d7c7c6392985";   // Reset me before enabling billing
+const char* WEATHER_API_KEY = SETME:
 const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
 void SetActionLEDOn()
