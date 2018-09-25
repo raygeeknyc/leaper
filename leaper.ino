@@ -33,7 +33,7 @@ float COORDINATES_PERTH [] = { -31.96, 115.86};
 float COORDINATES_SUVA [] = {-18.12, 178.45};
 
 // Where this device is homed
-float* HOME_COORDINATES = COORDINATES_NYC;
+float* HOME_COORDINATES = COORDINATES_SUVA;
 
 #define _DEFAULT_POLL_DELAY_MS 5000
 int poll_delay;
@@ -65,12 +65,12 @@ int poll_delay;
 #define WEATHER_RAINING_THRESHOLD 0.7
 
 const char* wifi_ssid_mfny     = "Google";
-const char* wifi_password_mfny = SETME;
+const char* wifi_password_mfny = "GoogleMS";
 const char* wifi_ssid_backup     = "thetardis";
-const char* wifi_password_backup = SETME;
+const char* wifi_password_backup = "100cloudy";
 
-const char* wifi_ssid     = wifi_ssid_backup;
-const char* wifi_password = wifi_password_backup;
+const char* wifi_ssid     = wifi_ssid_mfny;
+const char* wifi_password = wifi_password_mfny;
 
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
@@ -86,7 +86,7 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = "271428dae50898a27f9af234f1497b19";   // Reset me before enabling billing
+const char* WEATHER_API_KEY = "1ee4916844ca0524f784d7c7c6392985";   // Reset me before enabling billing
 const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
 void SetActionLEDOn()
