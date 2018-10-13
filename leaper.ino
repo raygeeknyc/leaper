@@ -30,10 +30,10 @@ float COORDINATES_SEOUL [] = {37.57, 126.98};
 float COORDINATES_CHENNAI [] = {13.08, 80.27};
 // Australia and Oceania
 float COORDINATES_PERTH [] = { -31.96, 115.86};
-float COORDINATES_SUVA [] = {-18.12, 178.45};
+float COORDINATES_SUVA [] = { -18.12, 178.45};
 
 // Where this device is homed
-float* HOME_COORDINATES = COORDINATES_SUVA;
+float* HOME_COORDINATES = COORDINATES_NYC;
 
 #define _DEFAULT_POLL_DELAY_MS 5000
 int poll_delay;
@@ -42,7 +42,7 @@ int poll_delay;
 #define ACTION_LED_PIN LED_BUILTIN
 
 #define SERVO_PIN 14
-#define UMBRELLA_CENTER 140
+#define UMBRELLA_CENTER 120
 #define UMBRELLA_OPEN 60
 #define UMBRELLA_CLOSED 180
 
@@ -64,13 +64,13 @@ int poll_delay;
 #define WEATHER_CLEAR_THRESHOLD 0.2
 #define WEATHER_RAINING_THRESHOLD 0.7
 
-const char* wifi_ssid_mfny     = "Google";
-const char* wifi_password_mfny = SETME;
+const char* wifi_ssid_primary     = "GoogleGuest-Legacy";
+const char* wifi_password_primary = "";
 const char* wifi_ssid_backup     = "thetardis";
-const char* wifi_password_backup = SETME;
+const char* wifi_password_backup = "SETME";
 
-const char* wifi_ssid     = wifi_ssid_mfny;
-const char* wifi_password = wifi_password_mfny;
+const char* wifi_ssid     = wifi_ssid_backup;
+const char* wifi_password = wifi_password_backup;
 
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
@@ -86,8 +86,8 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = SETME:
-const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
+const char* WEATHER_API_KEY = "1ee4916844ca0524f784d7c7c6392985";
+                              const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
 void SetActionLEDOn()
 {
@@ -151,6 +151,8 @@ void setup() {
   if (delay_ms > 0) {
     poll_delay = delay_ms;
   }
+
+  weather_tier = -1;
 }
 
 char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
