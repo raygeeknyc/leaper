@@ -35,8 +35,10 @@ float COORDINATES_SUVA [] = { -18.12, 178.45};
 // Where this device is homed
 float* HOME_COORDINATES = COORDINATES_NYC;
 
-#define _DEFAULT_POLL_DELAY_MS 5000
-int poll_delay;
+#define _DEFAULT_POLL_DELAY_MS 300000
+long poll_delay;
+
+#define HOST_CONNECT_RETRIES 5
 
 #define CONNECTION_LED_PIN 2
 #define ACTION_LED_PIN LED_BUILTIN
@@ -44,7 +46,7 @@ int poll_delay;
 #define SERVO_PIN 14
 #define UMBRELLA_CENTER 120
 #define UMBRELLA_OPEN 60
-#define UMBRELLA_CLOSED 180
+#define UMBRELLA_CLOSED 160
 
 #define RAIN_LABEL1 "rain"
 #define RAIN_LABEL2 "Rain"
@@ -67,14 +69,18 @@ int poll_delay;
 const char* wifi_ssid_primary     = "GoogleGuest-Legacy";
 const char* wifi_password_primary = "";
 const char* wifi_ssid_backup     = "thetardis";
-const char* wifi_password_backup = "SETME";
+const char* wifi_password_backup = "100cloudy";
 
 const char* wifi_ssid     = wifi_ssid_backup;
 const char* wifi_password = wifi_password_backup;
 
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
+const char* ziggy_fingerprint = "";
+
 const char* weather_host = "api.darksky.net";
+const char weather_fingerprint[] PROGMEM = "91 7E 73 2D 33 0F 9A 12 40 4F 73 D8 BE A3 69 48 B9 29 DF FC";
+
 const char* DATETIME_LABEL = "datetime=";
 const char* DELAY_LABEL = "delay=";
 
@@ -86,7 +92,7 @@ int currentServoPosition;
 
 const char* WEATHER_SERVICE = "https://api.darksky.net/forecast/";
 const char* WEATHER_PARAMS = "lang=en&units=si&exclude=minutely,hourly,daily,alerts,flags";
-const char* WEATHER_API_KEY = "1ee4916844ca0524f784d7c7c6392985";
+const char* WEATHER_API_KEY = "e24d598b3b345285582680e5062706b6";
                               const char* WEATHER_RESPONSE_FIELD_LABEL = "precipProbability";
 
 void SetActionLEDOn()
@@ -147,7 +153,8 @@ void setup() {
   SetActionLEDOff();
   SetConnectionLEDOff();
 
-  int delay_ms = getDelay();
+  long delay_ms = -1;
+  //delay_ms = getDelay();
   if (delay_ms > 0) {
     poll_delay = delay_ms;
   }
@@ -162,30 +169,42 @@ char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
   sprintf(url, "/forecast/%s/%f,%f,%ld?exclude=minutely,hourly,daily,alerts,flags&units=si",
           WEATHER_API_KEY, COORDINATES[0], COORDINATES[1], target_timestamp);
 
-  return getHttpResponse(weather_host, url);
+  return getHttpsResponse(weather_host, weather_fingerprint, url);
 }
 
-char* getHttpResponse(const char* host, char* url) {
-  WiFiClientSecure http_client;
+char* getHttpsResponse(const char* host, const char* fingerprint, char* url) {
+  WiFiClientSecure https_client;
 
-  Serial.println("");
-  Serial.println("Connecting to Wifi");
-  WiFi.begin(wifi_ssid, wifi_password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  SetConnectionLEDOn();
-
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Connecting to Wifi");
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(wifi_ssid, wifi_password);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  }
+  SetConnectionLEDOn();
 
   Serial.print("Connecting to host: ");
   Serial.println(host);
-
-  if (!http_client.connect(host, HTTPS_PORT)) {
+  if (fingerprint != 0 && strlen(fingerprint) > 0) {
+    Serial.printf("Using fingerprint '%s'\n", fingerprint);
+    https_client.setFingerprint(fingerprint);
+  }
+  https_client.setInsecure();
+  bool connected = false;
+  for (int i=0; i< HOST_CONNECT_RETRIES; i++) {
+    if (https_client.connect(host, HTTPS_PORT)) {
+      connected = true;
+      break;
+    }
+  }
+  if (! connected) {
     Serial.println("connection to host failed");
     return 0L;
   }
@@ -194,19 +213,19 @@ char* getHttpResponse(const char* host, char* url) {
   Serial.println(url);
 
   // This will send the request to the server
-  http_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+  https_client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                     "Host: " + host + "\r\n" +
                     "Connection: close\r\n\r\n");
 
   Serial.println("request sent");
-  while (http_client.connected()) {
-    String line = http_client.readStringUntil('\n');
+  while (https_client.connected()) {
+    String line = https_client.readStringUntil('\n');
     if (line == "\r") {
       Serial.println("headers received");
       break;
     }
   }
-  String response_body = http_client.readStringUntil('\n');
+  String response_body = https_client.readStringUntil('\n');
   Serial.print("Body: ");
   Serial.println(response_body);
   char* response_buffer = (char*)malloc(response_body.length() + 1);
@@ -214,13 +233,13 @@ char* getHttpResponse(const char* host, char* url) {
   return response_buffer;
 }
 
-long getTarget() {
+long getTargetTime() {
   // We now create a URI for the request
   char url[] = "/gettarget";
   Serial.print("Requesting URL: ");
   Serial.println(url);
   char* http_response_body;
-  String response = String(http_response_body = getHttpResponse(ziggy_host, url));
+  String response = String(http_response_body = getHttpsResponse(ziggy_host, ziggy_fingerprint, url));
   int pos;
   long timestamp = -1L;
 
@@ -241,7 +260,7 @@ int getDelay() {
   Serial.print("Requesting URL: ");
   Serial.println(url);
   char* http_response_body;
-  String response = String(http_response_body = getHttpResponse(ziggy_host, url));
+  String response = String(http_response_body = getHttpsResponse(ziggy_host, ziggy_fingerprint, url));
   int pos;
   int delay_ms = -1L;
 
@@ -340,9 +359,11 @@ int getPrecipitationFor(float COORDINATES[], long target) {
 }
 
 void loop() {
-  long new_target = getTarget();
-
-  if (new_target != target) {
+  long new_target = -1l;
+  
+  //new_target = getTargetTime();
+  
+  if (new_target != target || new_target == -1l) {
     Serial.print("New target date: ");
     Serial.println(new_target);
     int new_weather_tier = getPrecipitationFor(HOME_COORDINATES, new_target);
