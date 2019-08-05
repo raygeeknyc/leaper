@@ -69,7 +69,7 @@ long poll_delay;
 const char* wifi_ssid_primary     = "GoogleGuest-Legacy";
 const char* wifi_password_primary = "";
 const char* wifi_ssid_backup     = "thetardis";
-const char* wifi_password_backup = "100cloudy";
+const char* wifi_password_backup = "SETME";
 
 const char* wifi_ssid     = wifi_ssid_backup;
 const char* wifi_password = wifi_password_backup;
