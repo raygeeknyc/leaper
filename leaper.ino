@@ -40,6 +40,8 @@ long poll_delay;
 
 #define HOST_CONNECT_RETRIES 5
 
+#define WIFI_RETRY_MILLIS 10000
+
 #define CONNECTION_LED_PIN 2
 #define ACTION_LED_PIN LED_BUILTIN
 
@@ -66,13 +68,11 @@ long poll_delay;
 #define WEATHER_CLEAR_THRESHOLD 0.2
 #define WEATHER_RAINING_THRESHOLD 0.7
 
-const char* wifi_ssid_primary     = "GoogleGuest-Legacy";
-const char* wifi_password_primary = "";
-const char* wifi_ssid_backup     = "thetardis";
-const char* wifi_password_backup = "SETME";
+const char* primary_wifi_ssid     = "GoogleGuest-Legacy";
+const char* primary_wifi_password = "";
 
-const char* wifi_ssid     = wifi_ssid_backup;
-const char* wifi_password = wifi_password_backup;
+const char* backup_wifi_ssid     = "thetardis";
+const char* backup_wifi_password = "SETME";
 
 const int HTTPS_PORT = 443;
 const char* ziggy_host = "ziggy-214721.appspot.com";
@@ -151,6 +151,7 @@ void setup() {
   delay(500);
   MoveServoToPosition(UMBRELLA_CENTER, 10);
   SetActionLEDOff();
+  WiFi.disconnect();
   SetConnectionLEDOff();
 
   long delay_ms = -1;
@@ -172,24 +173,37 @@ char* getWeatherSummary(float COORDINATES[], long target_timestamp) {
   return getHttpsResponse(weather_host, weather_fingerprint, url);
 }
 
+void trySSID(const char* wifi_ssid, const char* wifi_password) {
+  Serial.print("trying ");
+  Serial.println(wifi_ssid);
+  WiFi.begin(wifi_ssid, wifi_password);
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+}
+
+void ensureWifiConnection() {
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Connecting to Wifi");
+    WiFi.mode(WIFI_STA);
+    trySSID(primary_wifi_ssid, primary_wifi_password);
+    if (WiFi.status() != WL_CONNECTED) {
+      trySSID(backup_wifi_ssid, backup_wifi_password);
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+      delay(WIFI_RETRY_MILLIS);
+    }
+  }
+  SetConnectionLEDOn();
+}
+
 char* getHttpsResponse(const char* host, const char* fingerprint, char* url) {
   WiFiClientSecure https_client;
 
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Connecting to Wifi");
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(wifi_ssid, wifi_password);
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print(".");
-    }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  }
-  SetConnectionLEDOn();
-
+  ensureWifiConnection();
+  
   Serial.print("Connecting to host: ");
   Serial.println(host);
   if (fingerprint != 0 && strlen(fingerprint) > 0) {
@@ -230,6 +244,7 @@ char* getHttpsResponse(const char* host, const char* fingerprint, char* url) {
   Serial.println(response_body);
   char* response_buffer = (char*)malloc(response_body.length() + 1);
   strcpy(response_buffer, response_body.c_str());
+  https_client.stop();
   return response_buffer;
 }
 
